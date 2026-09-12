@@ -22,7 +22,7 @@ from api.logger import logger
 # 关闭警告
 disable_warnings(exceptions.InsecureRequestWarning)
 
-__all__ = ["CacheDAO", "Tiku", "TikuFallback", "TikuYanxi", "TikuGo", "TikuLike", "TikuAdapter", "AI", "SiliconFlow"]
+__all__ = ["CacheDAO", "Tiku", "TikuFallback", "TikuYanxi", "TikuGo", "TikuLike", "TikuAdapter", "TikuSuper", "AI", "SiliconFlow"]
 
 class CacheDAO:
     """
@@ -974,6 +974,70 @@ class TikuAdapter(Tiku):
         # self.load_token()
         self.api = self._conf['url']
 
+class TikuSuper(Tiku):
+    # Super题库实现, 对接 SuperAutoStudy/TiKu 题库服务 (默认 http://tk.xxtmooc.com/api/q)
+    # 参考: SuperAutoStudy-master 的 utils/Query.java + config/TiKuConfig.java
+    def __init__(self) -> None:
+        super().__init__()
+        self.name = 'Super题库'
+        self.api = ''
+
+    def _query(self, q_info: dict):
+        # 题目类型映射: single=0 multiple=1 completion/fill=2 judgement=3 short=4
+        if q_info['type'] == "single":
+            _type = 0
+        elif q_info['type'] == 'multiple':
+            _type = 1
+        elif q_info['type'] in ('completion', 'fill'):
+            _type = 2
+        elif q_info['type'] == 'judgement':
+            _type = 3
+        else:
+            _type = 4
+
+        # options 可能为字符串(换行分隔)或列表, 统一转列表并去除 "A." 前缀
+        options = q_info.get('options')
+        if isinstance(options, str):
+            options = options.split('\n')
+        options = [sub(r'^[A-Za-z]\.?、?\s?', '', option) for option in (options or [])]
+
+        try:
+            res = requests.post(
+                self.api,
+                json={
+                    'question': q_info['title'],
+                    'options': options,
+                    'type': _type,
+                },
+                headers={'Content-Type': 'application/json'},
+                timeout=15,
+                verify=False,
+            )
+        except Exception as e:
+            logger.error(f'{self.name}请求失败: {e}')
+            return None
+
+        if res.status_code != 200:
+            logger.error(f'{self.name}查询失败, HTTP {res.status_code}: {res.text}')
+            return None
+
+        try:
+            res_json = res.json()
+        except Exception:
+            logger.error(f'{self.name}响应解析失败: {res.text}')
+            return None
+
+        # Super题库响应格式: {"code":200,"data":"答案","msg":"..."}
+        if res_json.get('code') != 200 or not res_json.get('data'):
+            logger.error(f'{self.name}查询失败: {res.text}')
+            return None
+        return str(res_json['data']).strip()
+
+    def _init_tiku(self):
+        # url 为题库服务地址, 默认 https://tk.xxtmooc.com/api/q
+        self.api = self._conf['url']
+
+
 class AI(Tiku):
     # AI大模型答题实现
     def __init__(self) -> None:
@@ -1293,6 +1357,7 @@ PROVIDER_REGISTRY = {
     'TikuGo': TikuGo,
     'TikuLike': TikuLike,
     'TikuAdapter': TikuAdapter,
+    'TikuSuper': TikuSuper,
     'AI': AI,
     'SiliconFlow': SiliconFlow,
 }
