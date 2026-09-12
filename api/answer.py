@@ -1034,8 +1034,8 @@ class TikuSuper(Tiku):
         return str(res_json['data']).strip()
 
     def _init_tiku(self):
-        # url 为题库服务地址, 默认 https://tk.xxtmooc.com/api/q
-        self.api = self._conf['url']
+        # url 为题库服务地址, 不填写时自动使用默认 Super 题库服务地址
+        self.api = self._conf.get('url') or 'http://tk.xxtmooc.com/api/q'
 
 
 class AI(Tiku):
