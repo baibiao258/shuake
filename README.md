@@ -164,6 +164,7 @@ python main.py
 | `speed` | 视频倍速（默认 1，最大 2） |
 | `jobs` | 同时进行的章节数 |
 | `notopen_action` | 遇到关闭任务点时的行为：`retry/continue` |
+| `skip_work` | `true` 只刷视频，跳过章节测验（不答题） |
 
 ### `[tiku]` 题库配置
 
@@ -229,6 +230,7 @@ delay=1.0
 | `CHAOXING_USERNAME` | 学习通手机号 | ✅ |
 | `CHAOXING_PASSWORD` | 登录密码 | ✅ |
 | `CHAOXING_COURSE_LIST` | 课程ID列表（逗号隔开），留空=全部 | |
+| `SKIP_WORK` | `true` 时只刷视频/不看测验、不答题 | |
 | `TIKU_PROVIDER` | 题库类型，如 `TikuSuper` | |
 | `TIKU_URL` | 题库服务地址，如 `http://tk.xxtmooc.com/api/q` | |
 | `TIKU_TOKENS` / `TIKU_ENDPOINT` / `TIKU_KEY` / `TIKU_MODEL` | 相应题库/AI 配置 | |

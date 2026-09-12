@@ -29,6 +29,7 @@ jobs:
           CHAOXING_USERNAME: ${{ secrets.CHAOXING_USERNAME }}
           CHAOXING_PASSWORD: ${{ secrets.CHAOXING_PASSWORD }}
           CHAOXING_COURSE_LIST: ${{ secrets.CHAOXING_COURSE_LIST }}
+          SKIP_WORK: ${{ secrets.SKIP_WORK }}
           TIKU_PROVIDER: ${{ secrets.TIKU_PROVIDER }}
           TIKU_TOKENS: ${{ secrets.TIKU_TOKENS }}
           TIKU_URL: ${{ secrets.TIKU_URL }}

@@ -124,6 +124,8 @@ def load_config_from_file(config_path):
             common_config["username"] = common_config["username"].strip()
         if "password" in common_config and common_config["password"] is not None:
             common_config["password"] = common_config["password"].strip()
+        if "skip_work" in common_config:
+            common_config["skip_work"] = str_to_bool(common_config["skip_work"])
         if "verbose" in common_config:
             common_config["verbose"] = str_to_bool(common_config["verbose"])
 
@@ -167,6 +169,7 @@ def build_config_from_args(args):
         "speed": args.speed if args.speed else 1.0,
         "jobs": args.jobs,
         "notopen_action": args.notopen_action if args.notopen_action else "retry",
+        "skip_work": str_to_bool(os.environ.get("SKIP_WORK")),
         "verbose": args.verbose,
     }
     return common_config, {}, {}
@@ -261,7 +264,7 @@ def init_chaoxing(common_config, tiku_config):
     
     return chaoxing
 
-def process_job(chaoxing: Chaoxing, course: dict, job: dict, job_info: dict, speed: float) -> StudyResult:
+def process_job(chaoxing: Chaoxing, course: dict, job: dict, job_info: dict, speed: float, skip_work: bool = False) -> StudyResult:
     """处理单个任务点"""
     # 视频任务
     if job["type"] == "video":
@@ -285,6 +288,9 @@ def process_job(chaoxing: Chaoxing, course: dict, job: dict, job_info: dict, spe
         return chaoxing.study_document(course, job)
     # 测验任务
     elif job["type"] == "workid":
+        if skip_work:
+            logger.warning(f"已开启只刷视频模式, 跳过章节测验任务: {course['title']} / {job['jobid']}")
+            return StudyResult.SUCCESS
         logger.trace(f"识别到章节检测任务, 任务章节: {course['title']}")
         return chaoxing.study_work(course, job, job_info)
     # 阅读任务
@@ -395,7 +401,7 @@ class JobProcessor:
                 logger.debug("Queue worker stopped")
                 return
 
-            task.result = process_chapter(self.chaoxing, self.course, task.point, self.speed)
+            task.result = process_chapter(self.chaoxing, self.course, task.point, self.speed, self.config.get("skip_work", False))
 
             match task.result:
                 case ChapterResult.SUCCESS:
@@ -452,7 +458,7 @@ class JobProcessor:
             time.sleep(1) # TODO: Replace with a configurable wait time
 
 
-def process_chapter(chaoxing: Chaoxing, course:dict[str, Any], point:dict[str, Any], speed:float) -> ChapterResult:
+def process_chapter(chaoxing: Chaoxing, course:dict[str, Any], point:dict[str, Any], speed:float, skip_work: bool = False) -> ChapterResult:
     """处理单个章节"""
     logger.info(f'当前章节: {point["title"]}')
     if point["has_finished"]:
@@ -477,7 +483,7 @@ def process_chapter(chaoxing: Chaoxing, course:dict[str, Any], point:dict[str, A
     # TODO: 个别章节很恶心，多到5个点，可以并行处理，将来会让不同课程不同章节的所有任务点共享一个队列，从而实现全局并行
     job_results:list[StudyResult]=[]
     with ThreadPoolExecutor(max_workers=5) as executor:
-        for result in executor.map(lambda job: process_job(chaoxing, course, job, job_info, speed), jobs):
+        for result in executor.map(lambda job: process_job(chaoxing, course, job, job_info, speed, skip_work), jobs):
             job_results.append(result)
     
     for result in job_results:
