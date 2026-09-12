@@ -192,13 +192,44 @@ def init_chaoxing(common_config, tiku_config):
     password = common_config.get("password", "")
     use_cookies = common_config.get("use_cookies", False)
     
-    # 如果没有提供用户名密码，从命令行获取
+    # 如果账号密码缺失，尝试从环境变量读取(如 GitHub Actions Secrets)
+    if not username and os.environ.get("CHAOXING_USERNAME"):
+        username = os.environ["CHAOXING_USERNAME"]
+    if not password and os.environ.get("CHAOXING_PASSWORD"):
+        password = os.environ["CHAOXING_PASSWORD"]
+
+    # 缺失且非交互终端时清晰报错，避免 CI 中 input() 抛 EOFError
     if (not username or not password) and not use_cookies:
+        if not sys.stdin.isatty():
+            raise LoginError(
+                "未检测到账号密码且非交互终端。请在 Actions Secrets 配置 "
+                "CHAOXING_USERNAME / CHAOXING_PASSWORD，或用 -u/-p 提供。"
+            )
         username = input("请输入你的手机号, 按回车确认\n手机号:")
         password = input("请输入你的密码, 按回车确认\n密码:")
     
     account = Account(username, password)
     
+    # 题库配置补充: 显式配置缺失时从环境变量读取(便于 Actions Secrets)
+    if not tiku_config:
+        tiku_config = {}
+    _tiku_env_map = {
+        "provider": "TIKU_PROVIDER",
+        "tokens": "TIKU_TOKENS",
+        "url": "TIKU_URL",
+        "endpoint": "TIKU_ENDPOINT",
+        "key": "TIKU_KEY",
+        "model": "TIKU_MODEL",
+        "siliconflow_key": "SILICONFLOW_KEY",
+        "siliconflow_model": "SILICONFLOW_MODEL",
+        "siliconflow_endpoint": "SILICONFLOW_ENDPOINT",
+        "go_authorization": "GO_AUTHORIZATION",
+        "likeapi_model": "LIKEAPI_MODEL",
+    }
+    for _key, _env_name in _tiku_env_map.items():
+        if not tiku_config.get(_key) and os.environ.get(_env_name):
+            tiku_config[_key] = os.environ[_env_name]
+
     # 设置题库
     tiku = Tiku()
     tiku.config_set(tiku_config)  # 载入配置
