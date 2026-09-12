@@ -1010,7 +1010,7 @@ class TikuSuper(Tiku):
                     'type': _type,
                 },
                 headers={'Content-Type': 'application/json'},
-                timeout=15,
+                timeout=8,
                 verify=False,
             )
         except Exception as e:
